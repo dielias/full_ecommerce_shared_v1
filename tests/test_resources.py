@@ -1,6 +1,7 @@
 import psutil
 import time
 import requests
+import csv
 
 def test_resource_usage_during_request():
     process = psutil.Process()
@@ -28,4 +29,22 @@ def test_resource_usage_during_request():
 
     assert response.status_code == 200
     assert elapsed_time < 2.0  # Por exemplo, queremos respostas em menos de 2 segundos
+
+    # Salvar os dados em um arquivo CSV
+def save_stats_to_csv():
+    with open("resource_usage_results.csv", mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Endpoint", "CPU (%)", "Memória (%)", "Swap (%)", "Tempo de Resposta (s)"])
+
+        for i in range(len(stats["endpoint"])):
+            writer.writerow([
+                stats["endpoint"][i],
+                stats["cpu_percent"][i],
+                stats["memory_percent"][i],
+                stats["swap_percent"][i],
+                stats["response_time"][i],
+            ])
+
+save_stats_to_csv()
+print("✅ Resultados salvos em resource_usage_results.csv!")
 
