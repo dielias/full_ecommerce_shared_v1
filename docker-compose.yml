@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:14
+    container_name: ecommerce-db
+    environment:
+      POSTGRES_USER: ecommerce
+      POSTGRES_PASSWORD: my_password
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    build:
+      context: .
+      dockerfile: services/db-init/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  users:
+    build:
+      context: .
+      dockerfile: services/users/Dockerfile
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "8001:8001"
+    networks:
+      - ecommerce-net
+
+  products:
+    build:
+      context: .
+      dockerfile: services/products/Dockerfile
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "8002:8002"
+    networks:
+      - ecommerce-net
+
+  orders:
+    build:
+      context: .
+      dockerfile: services/orders/Dockerfile
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "8003:8003"
+    networks:
+      - ecommerce-net
+
+networks:
+  ecommerce-net:
+    driver: bridge
+
