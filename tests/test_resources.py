@@ -1,28 +1,31 @@
 import psutil
 import time
-import csv
+import requests
 
-def monitor_resources(duration=30, output_file="resource_usage.csv"):
-    print(f"Monitorando uso de recursos por {duration} segundos...")
+def test_resource_usage_during_request():
+    process = psutil.Process()
+    
+    # Antes de fazer a requisição
+    memory_before = process.memory_info().rss
+    cpu_before = process.cpu_percent(interval=None)
+
     start_time = time.time()
 
-    # Cria ou sobrescreve o arquivo CSV
-    with open(output_file, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Timestamp", "CPU (%)", "Memória (%)", "Swap (%)"])
+    # Faz uma requisição para seu serviço (por exemplo, listar produtos)
+    response = requests.get("http://localhost:8002/products")
 
-        while time.time() - start_time < duration:
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            cpu_percent = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            swap = psutil.swap_memory()
+    elapsed_time = time.time() - start_time
 
-            # Escrever uma linha no CSV
-            writer.writerow([timestamp, cpu_percent, memory.percent, swap.percent])
+    # Depois da requisição
+    memory_after = process.memory_info().rss
+    cpu_after = process.cpu_percent(interval=None)
 
-            print(f"{timestamp} | CPU: {cpu_percent}% | Memória: {memory.percent}% | Swap: {swap.percent}%")
+    print(f"Memory Before: {memory_before} bytes")
+    print(f"Memory After: {memory_after} bytes")
+    print(f"CPU Before: {cpu_before}%")
+    print(f"CPU After: {cpu_after}%")
+    print(f"Elapsed Time: {elapsed_time:.4f} seconds")
 
-    print(f"✅ Monitoramento finalizado! Dados salvos em '{output_file}'.")
+    assert response.status_code == 200
+    assert elapsed_time < 2.0  # Por exemplo, queremos respostas em menos de 2 segundos
 
-if __name__ == "__main__":
-    monitor_resources(duration=30)  # ou ajuste a duração que quiser
