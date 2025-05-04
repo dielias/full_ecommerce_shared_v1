@@ -50,3 +50,14 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(user)
     return user
+
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    user.name = user_update.name
+    user.email = user_update.email
+    db.commit()
+    db.refresh(user)
+    return user
