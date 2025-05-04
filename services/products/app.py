@@ -30,6 +30,13 @@ def list_products(db: Session = Depends(get_db)):
     products = db.execute(stmt).scalars().all()
     return products
 
+@app.get("/products/{product_id}")
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    return product
+
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     product = db.get(Product, product_id)
@@ -52,3 +59,4 @@ def update_product(product_id: int, name: str, price: int, db: Session = Depends
     db.commit()
     db.refresh(product)
     return product
+
