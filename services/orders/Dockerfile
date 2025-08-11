@@ -1,13 +1,18 @@
-FROM python:3.13.5-slim-bookworm
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copiar requirements e instalar dependências
+ENV PYTHONPATH=/app
+
+RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
 RUN pip install --default-timeout=100 -r requirements.txt
 
-COPY shared /app/shared
-COPY services/orders/app.py /app/app.py
+COPY services/shared ./services/shared
+COPY services/orders ./services/orders
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "services.orders.app:app", "--host", "0.0.0.0", "--port", "8003"]
+
+

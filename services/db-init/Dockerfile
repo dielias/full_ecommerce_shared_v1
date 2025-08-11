@@ -1,14 +1,17 @@
-FROM python:3.13.5-slim-bookworm
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copia o requirements.txt e instala dependências primeiro
+ENV PYTHONPATH=/app
+
+# Instalar dependências do sistema e Python
+RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
 RUN pip install --default-timeout=100 -r requirements.txt
 
-# Agora copia os códigos
-COPY shared /app/shared
+COPY services/shared ./services/shared
 COPY services/db-init/init_db.py /app/init_db.py
 
-CMD ["python", "init_db.py"]
+CMD ["python", "-u", "init_db.py"]

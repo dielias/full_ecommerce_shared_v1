@@ -1,12 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from shared.database import SessionLocal, engine
-from shared.models import Base, Product
+from typing import List
+
+from services.shared.database import SessionLocal, engine
+from services.shared.models import Base, Product
+from services.products.schemas import ProductCreate, ProductUpdate, ProductResponse
 
 app = FastAPI()
 
-# Garante que as tabelas sejam criadas no banco
 Base.metadata.create_all(bind=engine)
 
 def get_db():
@@ -16,25 +18,40 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/products")
-def create_product(name: str, price: int, db: Session = Depends(get_db)):
-    product = Product(name=name, price=price)
-    db.add(product)
+@app.post("/products", response_model=ProductResponse)
+def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    db_product = Product(
+        name=product.name,
+        price=product.price,
+        quantity=product.quantity
+    )
+    db.add(db_product)
     db.commit()
-    db.refresh(product)
-    return product
+    db.refresh(db_product)
+    return db_product
 
-@app.get("/products")
+@app.get("/products", response_model=List[ProductResponse])
 def list_products(db: Session = Depends(get_db)):
-    stmt = select(Product)
-    products = db.execute(stmt).scalars().all()
+    products = db.execute(select(Product)).scalars().all()
     return products
 
-@app.get("/products/{product_id}")
+@app.get("/products/{product_id}", response_model=ProductResponse)
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+    return product
+
+@app.put("/products/{product_id}", response_model=ProductResponse)
+def update_product(product_id: int, product_update: ProductUpdate, db: Session = Depends(get_db)):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    product.name = product_update.name
+    product.price = product_update.price
+    product.quantity = product_update.quantity
+    db.commit()
+    db.refresh(product)
     return product
 
 @app.delete("/products/{product_id}")
@@ -42,21 +59,6 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    
     db.delete(product)
     db.commit()
     return {"message": "Produto deletado com sucesso"}
-
-# 🔥 Nova rota para atualizar produto
-@app.put("/products/{product_id}")
-def update_product(product_id: int, name: str, price: int, db: Session = Depends(get_db)):
-    product = db.get(Product, product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
-    product.name = name
-    product.price = price
-    db.commit()
-    db.refresh(product)
-    return product
-

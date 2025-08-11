@@ -1,15 +1,17 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from shared.database import SessionLocal, engine, Base
-from shared.models import Order
-from pydantic import BaseModel
+from sqlalchemy import select
+from typing import List
+
+from services.shared.database import SessionLocal, engine
+from services.shared.models import Base, Order
+from services.orders.schemas import OrderCreate, OrderUpdate, OrderResponse, ProductQuantity
 
 app = FastAPI()
 
-# Garante que as tabelas existem
+# Cria as tabelas (se ainda não existirem)
 Base.metadata.create_all(bind=engine)
 
-# Dependência para obter sessão de banco de dados
 def get_db():
     db = SessionLocal()
     try:
@@ -17,55 +19,64 @@ def get_db():
     finally:
         db.close()
 
-# Pydantic schema para criar um pedido
-class OrderCreate(BaseModel):
-    user_id: int
-    product_id: int
-
-# 🔥 Novo schema para atualizar pedido
-class OrderUpdate(BaseModel):
-    user_id: int
-    product_id: int
-
-@app.post("/orders")
+@app.post("/orders", response_model=OrderResponse)
 def create_order(order: OrderCreate, db: Session = Depends(get_db)):
-    db_order = Order(user_id=order.user_id, product_id=order.product_id)
+    products_json = [p.dict() for p in order.products]
+    db_order = Order(user_id=order.user_id, products=products_json)
     db.add(db_order)
     db.commit()
     db.refresh(db_order)
-    return db_order
+    return OrderResponse(
+        order_id=db_order.id,
+        user_id=db_order.user_id,
+        products=db_order.products
+    )
 
-@app.get("/orders")
+@app.get("/orders", response_model=List[OrderResponse])
 def list_orders(db: Session = Depends(get_db)):
-    return db.query(Order).all()
+    stmt = select(Order)
+    orders = db.execute(stmt).scalars().all()
+    return [
+        OrderResponse(
+            order_id=o.id,
+            user_id=o.user_id,
+            products=o.products
+        )
+        for o in orders
+    ]
 
-# 🔥 Nova rota para atualizar um pedido
-@app.put("/orders/{order_id}")
-def update_order(order_id: int, order_update: OrderUpdate, db: Session = Depends(get_db)):
-    db_order = db.get(Order, order_id)
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Pedido não encontrado")
-
-    db_order.user_id = order_update.user_id
-    db_order.product_id = order_update.product_id
-    db.commit()
-    db.refresh(db_order)
-    return db_order
-
-# 🔥 Nova rota para deletar um pedido
-@app.delete("/orders/{order_id}")
-def delete_order(order_id: int, db: Session = Depends(get_db)):
-    db_order = db.get(Order, order_id)
-    if not db_order:
-        raise HTTPException(status_code=404, detail="Pedido não encontrado")
-
-    db.delete(db_order)
-    db.commit()
-    return {"message": "Pedido deletado com sucesso"}
-
-@app.get("/orders/{order_id}")
+@app.get("/orders/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    return order
+    return OrderResponse(
+        order_id=order.id,
+        user_id=order.user_id,
+        products=order.products
+    )
+
+@app.put("/orders/{order_id}", response_model=OrderResponse)
+def update_order(order_id: int, order_update: OrderUpdate, db: Session = Depends(get_db)):
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    order.user_id = order_update.user_id
+    order.products = [p.dict() for p in order_update.products]
+    db.commit()
+    db.refresh(order)
+    return OrderResponse(
+        order_id=order.id,
+        user_id=order.user_id,
+        products=order.products
+    )
+
+@app.delete("/orders/{order_id}")
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    db.delete(order)
+    db.commit()
+    return {"message": "Pedido deletado com sucesso"}
+
