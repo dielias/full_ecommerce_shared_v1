@@ -24,7 +24,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     return UserResponse(
-        user_id=db_user.id,
+        user_id=db_user.user_id,
         name=db_user.name,
         email=db_user.email
     )
@@ -35,7 +35,7 @@ def list_users(db: Session = Depends(get_db)):
     users = db.execute(stmt).scalars().all()
     return [
         UserResponse(
-            user_id=u.id,
+            user_id=u.user_id,
             name=u.name,
             email=u.email
         )
@@ -48,7 +48,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return UserResponse(
-        user_id=user.id,
+        user_id=user.user_id,
         name=user.name,
         email=user.email
     )
@@ -63,7 +63,7 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(user)
     return UserResponse(
-        user_id=user.id,
+        user_id=user.user_id,
         name=user.name,
         email=user.email
     )
