@@ -1,4 +1,12 @@
+version: "3.9"
+
+networks:
+  ecommerce-net:
+    driver: bridge
+
 services:
+
+  # Banco de dados
   db:
     image: postgres:14
     container_name: ecommerce-db
@@ -11,11 +19,12 @@ services:
     networks:
       - ecommerce-net
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "ecommerce"]
+      test: ["CMD-SHELL", "pg_isready -U ecommerce"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # Inicialização do banco
   db-init:
     build:
       context: .
@@ -23,62 +32,81 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://ecommerce:my_password@db:5432/ecommerce"
     networks:
       - ecommerce-net
 
+  # ToxiProxy - Apenas o servidor
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.7.0
+    container_name: toxiproxy
+    ports:
+      - "8474:8474"
+      - "8475-8477:8475-8477"
+    depends_on:
+      - db
+    networks:
+      - ecommerce-net
+
+  # Serviço de usuários
   users:
     build:
       context: .
       dockerfile: services/users/Dockerfile
     depends_on:
       db-init:
-        condition: service_completed_successfully
+        condition: service_started
     ports:
       - "8001:8001"
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://ecommerce:my_password@toxiproxy:8475/ecommerce"
     networks:
       - ecommerce-net
 
+  # Serviço de produtos
   products:
     build:
       context: .
       dockerfile: services/products/Dockerfile
     depends_on:
       db-init:
-        condition: service_completed_successfully
+        condition: service_started
     ports:
       - "8002:8002"
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://ecommerce:my_password@toxiproxy:8476/ecommerce"
     networks:
       - ecommerce-net
 
+  # Serviço de pedidos
   orders:
     build:
       context: .
       dockerfile: services/orders/Dockerfile
     depends_on:
       db-init:
-        condition: service_completed_successfully
+        condition: service_started
     ports:
       - "8003:8003"
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://ecommerce:my_password@toxiproxy:8477/ecommerce"
     networks:
       - ecommerce-net
 
+  # Locust para testes de stress
   locust:
     build:
       context: ./stress_tests
+      dockerfile: Dockerfile
     depends_on:
-      - users
-      - products
-      - orders
+      users:
+        condition: service_started
+      products:
+        condition: service_started
+      orders:
+        condition: service_started
     ports:
       - "8089:8089"
-    environment:
-      USER_SERVICE_URL: "http://users:8001"
-      PRODUCT_SERVICE_URL: "http://products:8002"
-      ORDER_SERVICE_URL: "http://orders:8003"
     networks:
       - ecommerce-net
-
-networks:
-  ecommerce-net:
-    driver: bridge
-
