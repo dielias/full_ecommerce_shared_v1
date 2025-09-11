@@ -9,8 +9,10 @@ from services.products.schemas import ProductCreate, ProductUpdate, ProductRespo
 
 app = FastAPI()
 
+# Cria tabelas se não existirem
 Base.metadata.create_all(bind=engine)
 
+# Dependência para obter sessão do banco
 def get_db():
     db = SessionLocal()
     try:
@@ -27,7 +29,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     )
     db.add(db_product)
     db.commit()
-    db.refresh(db_product)
+    db.refresh(db_product)  # garante que product_id venha do banco
     return db_product
 
 @app.get("/products", response_model=List[ProductResponse])
@@ -62,3 +64,4 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.delete(product)
     db.commit()
     return {"message": "Produto deletado com sucesso"}
+

@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from typing import List
 
 from services.shared.database import SessionLocal, engine
-from services.shared.models import Base, User  # shared models/diretório
+from services.shared.models import Base, User
 from services.users.schemas import UserCreate, UserUpdate, UserResponse
 
 app = FastAPI()
@@ -23,35 +24,19 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return UserResponse(
-        user_id=db_user.user_id,
-        name=db_user.name,
-        email=db_user.email
-    )
+    return db_user
 
-@app.get("/users", response_model=list[UserResponse])
+@app.get("/users", response_model=List[UserResponse])
 def list_users(db: Session = Depends(get_db)):
-    stmt = select(User)
-    users = db.execute(stmt).scalars().all()
-    return [
-        UserResponse(
-            user_id=u.user_id,
-            name=u.name,
-            email=u.email
-        )
-        for u in users
-    ]
+    users = db.execute(select(User)).scalars().all()
+    return users
 
 @app.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return UserResponse(
-        user_id=user.user_id,
-        name=user.name,
-        email=user.email
-    )
+    return user
 
 @app.put("/users/{user_id}", response_model=UserResponse)
 def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
@@ -62,11 +47,7 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     user.email = user_update.email
     db.commit()
     db.refresh(user)
-    return UserResponse(
-        user_id=user.user_id,
-        name=user.name,
-        email=user.email
-    )
+    return user
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
@@ -76,4 +57,3 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
     return {"message": "Usuário deletado com sucesso"}
-

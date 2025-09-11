@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-# Esquemas Pydantic para entrada de dados
 class ProductCreate(BaseModel):
     name: str
     price: float
@@ -11,9 +10,8 @@ class ProductUpdate(BaseModel):
     price: float
     quantity: int
 
-# Esquema Pydantic para resposta, com orm_mode ativado para trabalhar direto com SQLAlchemy models
 class ProductResponse(BaseModel):
-    product_id: int
+    product_id: int   # <-- bate com o models
     name: str
     price: float
     quantity: int
